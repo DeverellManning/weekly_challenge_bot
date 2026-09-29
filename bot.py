@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 import discord
 from discord.ext import tasks
 
-from quest_decision_dialog import EntryView
-from guild_data import GuildData
+from challenge_bot.quest_decision_dialog import EntryView
+from challenge_bot.guild_data import GuildData
 
 load_dotenv() # load all the variables from the env file
 
@@ -25,16 +25,13 @@ async def on_ready():
         print(g.name)
         guilds[g.id] = GuildData(g)
 
+        
+
     for g in guilds.values():
         print(g.id)
         g.create_test_quests()
         g.assign_quests()
-
-        status_channel = g.guild.get_channel(1455729620275167345)
-        assert(type(status_channel == discord.TextChannel))
-
-        await status_channel.send("Click below to see your personal panel.", view=EntryView())
-        bot.add_view(EntryView())
+        await g.announce_quests(bot)
 
     
     
@@ -49,7 +46,7 @@ async def my_quest(ctx : discord.ApplicationContext):
         guild = guilds[ctx.guild_id]
         player = guild.players[ctx.author.id]
         if player:
-            await ctx.respond(f"{player.name}, your active quest is: \n\"{player.get_active_quest_info()}\"")
+            await player.display_quest(ctx.interaction)
             
 
 

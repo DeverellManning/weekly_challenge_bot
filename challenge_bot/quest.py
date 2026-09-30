@@ -1,4 +1,8 @@
+import json
 from enum import Enum, auto
+from textwrap import wrap
+
+from challenge_bot.challenge_bot_encoder import ChallengeBotEncoder
 
 class QuestType(Enum):
     UNSET = 0
@@ -13,7 +17,8 @@ class QuestType(Enum):
 
 class QuestState(Enum):
     UNASSIGNED = auto()
-    IN_PROGRESS = auto()
+    PENDING_OFFER = auto()
+    ACCEPTED = auto()
     REJECTED = auto()
     COMPLETED = auto()
     FAILED = auto()
@@ -36,8 +41,36 @@ class Quest:
         self.status = QuestState.UNASSIGNED
         self.difficulty = difficulty
 
+        self.evidence = []
+    
+    def to_json(self):
+        return json.dumps(self, cls=ChallengeBotEncoder)
+
     def complete(self):
-        self.status = QuestState.COMPLETED
+        if self.status == QuestState.ACCEPTED:
+            self.status = QuestState.COMPLETED
+
+    def fail(self):
+        if self.status == QuestState.ACCEPTED:
+            self.status = QuestState.FAILED
+
+    def assign(self):
+        if self.status == QuestState.UNASSIGNED:
+            self.status = QuestState.PENDING_OFFER
+
+    def accept(self):
+        if self.status == QuestState.PENDING_OFFER:
+            self.status = QuestState.ACCEPTED
+
+    def reject(self):
+        if self.status == QuestState.PENDING_OFFER:
+            self.status = QuestState.REJECTED
+
+    def display(self) -> str:
+        return f"""## Quest Name
+{"".join(wrap(self.goal, 32, initial_indent="  ", subsequent_indent="  "))}
+> Points: {self.points} | Difficulty: {self.difficulty.name}
+"""
 
     
         

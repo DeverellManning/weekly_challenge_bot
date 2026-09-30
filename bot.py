@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 import discord
 from discord.ext import tasks
 
-from challenge_bot.quest_decision_dialog import EntryView
 from challenge_bot.guild_data import GuildData
 
 load_dotenv() # load all the variables from the env file
@@ -23,19 +22,14 @@ async def on_ready():
 
     for g in bot.guilds:
         print(g.name)
-        guilds[g.id] = GuildData(g)
-
-        
+        guilds[g.id] = GuildData(bot, g.id, role_id=1554254770083069973, channel_id=1455729620275167345)
 
     for g in guilds.values():
-        print(g.id)
+        g.on_ready()
         g.create_test_quests()
         g.assign_quests()
-        await g.announce_quests(bot)
+        await g.announce_quests()
 
-    
-    
-    
     
     await bot.sync_commands()
     print("Commands Synced.")
@@ -47,6 +41,22 @@ async def my_quest(ctx : discord.ApplicationContext):
         player = guild.players[ctx.author.id]
         if player:
             await player.display_quest(ctx.interaction)
+
+@bot.application_command()
+async def dump_json(ctx : discord.ApplicationContext):
+    await ctx.respond("\n".join([q.to_json() for q in guilds[ctx.guild.id].quest_pool]))
+
+@bot.application_command()
+async def complete_quest(ctx : discord.ApplicationContext):
+    pass
+
+@bot.application_command()
+async def abandon_quest(ctx : discord.ApplicationContext):
+    pass
+
+@bot.application_command()
+async def quest_status(ctx : discord.ApplicationContext):
+    await ctx.respond(guilds[ctx.guild.id].report_status())
             
 
 

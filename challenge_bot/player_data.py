@@ -2,26 +2,6 @@ import discord
 
 from challenge_bot.quest import *
 
-class AcceptView(discord.ui.View):
-    """The personalized, ephemeral part."""
-    def __init__(self, user: discord.abc.User):
-        super().__init__(timeout=180)
-        self.user = user
-
-    @discord.ui.button(label="Accept", style=discord.ButtonStyle.primary)
-    async def accept_challenge(self, button, interaction: discord.Interaction):
-        orig_text = interaction.message.content
-        orig_text += "\n *Quest Accepted*"
-        await interaction.response.edit_message(content=orig_text, view=None)
-        await interaction.channel.send(f"{self.user.name} has accepted their quest.")
-
-    @discord.ui.button(label="Reject", style=discord.ButtonStyle.danger)
-    async def reject_challenge(self, button, interaction: discord.Interaction):
-        orig_text = interaction.message.content
-        orig_text += "\n *Quest Rejected*"
-        await interaction.response.edit_message(content=orig_text, view=None)
-        await interaction.channel.send(f"{self.user.name} has rejected their quest.")
-
 
 class PlayerData:
     def __init__(self, member : discord.Member) -> None:
@@ -33,18 +13,65 @@ class PlayerData:
 
         self.active_quest : Quest|None = None
 
-    def get_active_quest_info(self):
+    def get_quest_info(self):
         if self.active_quest is not None:
-            return f"{self.active_quest.goal}"
+            return self.active_quest.display()
         else:
-            return ""
+            return "*Right now, you don't have a quest.*"
 
     async def display_quest(self, interaction : discord.Interaction):
-        text = f"""
-        {self.name}, this is your quest:
-        > {self.get_active_quest_info()}
-        """
-        await interaction.response.send_message(text, view=AcceptView(interaction.user), ephemeral=True)
+        text = f"This is your weekly quest, {self.name}:\n{self.get_quest_info()}"
+
+        await interaction.response.send_message(text, ephemeral=True)
+
+    def assign_quest(self, quest : Quest):
+        self.active_quest = quest
+        self.active_quest.assign()
+        
+    async def offer_quest(self, interaction : discord.Interaction):
+        text = f"""Hey {self.name}, here is your quest for this week:\n{self.get_quest_info()}"""
+        view = QuestDecisionView(self)
+        await interaction.response.send_message(text, view=view, ephemeral=True)
+        await view.wait()
 
     def has_quest(self):
-        return True
+        return False
+
+    def has_accepted_quest(self):
+        if not self.active_quest:
+            return False
+        if self.active_quest.status == QuestState.ACCEPTED:
+            return True
+        else:
+            return False
+    
+
+
+
+
+class QuestDecisionView(discord.ui.View):
+    """The personalized, ephemeral part."""
+    def __init__(self, player: PlayerData):
+        super().__init__(timeout=180)
+        if not player:
+            raise(ValueError("Player information was not provided to the Quest Decision View."))
+        else:
+            self.player = player
+
+    @discord.ui.button(label="Accept", style=discord.ButtonStyle.primary)
+    async def accept_challenge(self, button, interaction: discord.Interaction):
+        orig_text = interaction.message.content
+        orig_text += "\n *Quest Accepted*"
+        await interaction.response.edit_message(content=orig_text, view=None)
+        await interaction.channel.send(f"{self.player.name} has accepted their quest.")
+        self.player.active_quest.accept()
+        self.stop()
+
+    @discord.ui.button(label="Decline", style=discord.ButtonStyle.danger)
+    async def reject_challenge(self, button, interaction: discord.Interaction):
+        orig_text = interaction.message.content
+        orig_text += "\n *Quest Declined*"
+        await interaction.response.edit_message(content=orig_text, view=None)
+        await interaction.channel.send(f"{self.player.name} has declined their quest.")
+        self.player.active_quest.reject()
+        self.stop()

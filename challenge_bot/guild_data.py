@@ -1,30 +1,62 @@
 import random
-
+import tomllib
 import discord
-from discord import Guild
 
 from challenge_bot.player_data import PlayerData
-from challenge_bot.quest import Quest, QuestDifficulty, QuestType
-from challenge_bot.quest_decision_dialog import RevealQuestView
+from challenge_bot.quest import Quest, QuestDifficulty, QuestState, QuestType
+from challenge_bot.reveal_quest_view import RevealQuestView
 
 class GuildData:
-    def __init__(self, guild : Guild) -> None:
-        self.id = guild.id
-        self.guild = guild
+    def __init__(self, bot : discord.Bot, guild_id : int, role_id : int, channel_id : int) -> None:
+        self.bot = bot
 
-        self.challenge_role = guild.get_role(1554254770083069973)
-        assert(self.challenge_role is not None)
-
-        self.status_channel = guild.get_channel(1455729620275167345)
-        assert(self.status_channel is not None)
+        self.guild_id = guild_id
+        self.role_id = role_id
+        self.channel_id = channel_id
 
         self.players : dict[int, PlayerData]= {}
+        self.quest_pool : list[Quest] = []
+
+    def on_ready(self):
+        self.guild = self.bot.get_guild(self.guild_id)
+        assert(self.guild is not None)
+        self.guild_name = self.guild.name
+
+        self.challenge_role = self.guild.get_role(self.role_id)
+        assert(self.challenge_role is not None)
+
+        self.status_channel = self.guild.get_channel(self.channel_id)
+        assert(self.status_channel is not None)
+
         registered_memebers = self.challenge_role.members
         for m in registered_memebers:
             self.players[m.id] = PlayerData(m)
             print(f"{m.name} added to system!")
 
-        self.quest_pool : list[Quest] = []
+    def add_quest(self, q : Quest):
+        self.quest_pool.append(q)
+
+    def report_status(self):
+        text = f"""Server Name: {self.guild_name} *({self.guild_id})*
+Players:{"\n".join(t.get_quest_info() for t in self.players.values())}
+---
+{len(self.quest_pool)} quests available."""
+    
+    def assign_quests(self):
+        for player in self.players.values():
+            quest = random.choice(self.quest_pool)
+            player.assign_quest(quest)
+            self.quest_pool.remove(quest)
+
+        print(f"There are {len(self.quest_pool)} quests left in the pool.")
+
+    async def announce_quests(self):
+        self.rqv = RevealQuestView(players=self.players)
+        self.rqv.orig_mesg = "Hey everybody!  Quests have been assigned!"
+        self.msg = await self.status_channel.send(self.rqv.orig_mesg, view=self.rqv)
+        self.bot.add_view(self.rqv)
+
+        print(f"Quests announced in {self.guild_name}.")
 
     def create_test_quests(self):
         self.quest_pool.extend([
@@ -34,18 +66,6 @@ class GuildData:
             Quest("Trap every player.", QuestType.SABOTAGE, 1000, QuestDifficulty.HARD)
         ])
 
-    def assign_quests(self):
-        for p in self.players.values():
-            quest = random.choice(self.quest_pool)
-            p.active_quest = quest
-            self.quest_pool.remove(quest)
-
-        print(f"There are {len(self.quest_pool)} quests left in the pool.")
-
-    async def announce_quests(self, bot : discord.Bot):
-        rqv = RevealQuestView(players=self.players)
-        await self.status_channel.send("Hey everybody!  Quests have been assigned!", view=rqv)
-        bot.add_view(rqv)
 
 
     

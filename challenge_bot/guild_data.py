@@ -4,7 +4,7 @@ import discord
 
 from challenge_bot.player_data import PlayerData
 from challenge_bot.quest import Quest, QuestDifficulty, QuestState, QuestType
-from challenge_bot.reveal_quest_view import RevealQuestView
+from challenge_bot.dialogs import RevealQuestDialog
 
 class GuildData:
     def __init__(self, bot : discord.Bot, guild_id : int, role_id : int, channel_id : int) -> None:
@@ -25,8 +25,10 @@ class GuildData:
         self.challenge_role = self.guild.get_role(self.role_id)
         assert(self.challenge_role is not None)
 
-        self.status_channel = self.guild.get_channel(self.channel_id)
-        assert(self.status_channel is not None)
+        channel = self.guild.get_channel(self.channel_id)
+        assert(channel is not None)
+        assert(isinstance(channel, discord.TextChannel))
+        self.status_channel = channel
 
         registered_memebers = self.challenge_role.members
         for m in registered_memebers:
@@ -37,10 +39,13 @@ class GuildData:
         self.quest_pool.append(q)
 
     def report_status(self):
+        players_list = "\n- ".join([p.info() for p in self.players.values()])
         text = f"""Server Name: {self.guild_name} *({self.guild_id})*
-Players:{"\n".join(t.get_quest_info() for t in self.players.values())}
+Players:
+- {players_list}
 ---
-{len(self.quest_pool)} quests available."""
+There are {len(self.quest_pool)} quests remaining."""
+        return text
     
     def assign_quests(self):
         for player in self.players.values():
@@ -51,12 +56,38 @@ Players:{"\n".join(t.get_quest_info() for t in self.players.values())}
         print(f"There are {len(self.quest_pool)} quests left in the pool.")
 
     async def announce_quests(self):
-        self.rqv = RevealQuestView(players=self.players)
-        self.rqv.orig_mesg = "Hey everybody!  Quests have been assigned!"
-        self.msg = await self.status_channel.send(self.rqv.orig_mesg, view=self.rqv)
+        
+        self.rqv = RevealQuestDialog(on_respond_callback=self.handle_reveal)
+        self.msg = await self.status_channel.send("Hey everybody!  Quests have been assigned!", view=self.rqv)
         self.bot.add_view(self.rqv)
 
         print(f"Quests announced in {self.guild_name}.")
+
+    async def handle_reveal(self, interaction : discord.Interaction):
+        if interaction.user is None: return
+        try:
+            player = self.players[interaction.user.id]
+        except IndexError:
+            print(f"{interaction.user.id} is not a valid player!")
+            return
+        
+        if not player.has_accepted_quest():
+            await player.offer_quest(interaction)
+
+            n_accept = 0
+            n_reject = 0
+            total = len(self.players)
+            for p in self.players.values():
+                if p.active_quest:
+                    if p.active_quest == QuestState.ACCEPTED:
+                        n_accept += 1
+                    elif p.active_quest == QuestState.REJECTED:
+                        n_reject += 1
+                    
+            text = self.msg.content + f"\n-# Out of {total} players, {n_accept} have accepted and {n_reject} have declined their quest."
+            await self.msg.edit(content=text, view=self.rqv)
+        else:
+            await interaction.respond("-# *You have already accepted a quest!*", ephemeral=True, delete_after=6)
 
     def create_test_quests(self):
         self.quest_pool.extend([

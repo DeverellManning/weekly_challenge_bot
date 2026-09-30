@@ -2,8 +2,6 @@ import json
 from enum import Enum, auto
 from textwrap import wrap
 
-from challenge_bot.challenge_bot_encoder import ChallengeBotEncoder
-
 class QuestType(Enum):
     UNSET = 0
     MURDER = auto()
@@ -24,8 +22,8 @@ class QuestState(Enum):
     FAILED = auto()
 
 class QuestDifficulty(Enum):
-    EASY = 1,
-    MODERATE = 2,
+    EASY = 1
+    MODERATE = 2
     HARD = 3
 
 
@@ -42,9 +40,6 @@ class Quest:
         self.difficulty = difficulty
 
         self.evidence = []
-    
-    def to_json(self):
-        return json.dumps(self, cls=ChallengeBotEncoder)
 
     def complete(self):
         if self.status == QuestState.ACCEPTED:
@@ -69,8 +64,7 @@ class Quest:
     def display(self) -> str:
         return f"""## Quest Name
 {"".join(wrap(self.goal, 32, initial_indent="  ", subsequent_indent="  "))}
-> Points: {self.points} | Difficulty: {self.difficulty.name}
-"""
+> Points: {self.points} | Difficulty: {self.difficulty.name}"""
 
     
         

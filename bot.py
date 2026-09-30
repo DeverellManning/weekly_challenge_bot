@@ -1,15 +1,16 @@
 from datetime import datetime, time
-import os
+import os, json
 from dotenv import load_dotenv
 
 import discord
 from discord.ext import tasks
 
 from challenge_bot.guild_data import GuildData
+from challenge_bot.challenge_bot_encoder import ChallengeBotEncoder
 
-load_dotenv() # load all the variables from the env file
+load_dotenv()
 
-intents = discord.Intents.default()  # Allow the use of custom intents
+intents = discord.Intents.default()
 intents.members = True
 
 bot = discord.Bot(intents=intents)
@@ -44,7 +45,11 @@ async def my_quest(ctx : discord.ApplicationContext):
 
 @bot.application_command()
 async def dump_json(ctx : discord.ApplicationContext):
-    await ctx.respond("\n".join([q.to_json() for q in guilds[ctx.guild.id].quest_pool]))
+    if ctx.guild_id is not None:
+        json_str = json.dumps(guilds[ctx.guild_id].players, cls=ChallengeBotEncoder)
+        print(json_str)
+        print(json.loads(json_str))
+        await ctx.respond(json_str, ephemeral=True)
 
 @bot.application_command()
 async def complete_quest(ctx : discord.ApplicationContext):
@@ -54,9 +59,10 @@ async def complete_quest(ctx : discord.ApplicationContext):
 async def abandon_quest(ctx : discord.ApplicationContext):
     pass
 
-@bot.application_command()
+@bot.application_command(guild_only=True)
 async def quest_status(ctx : discord.ApplicationContext):
-    await ctx.respond(guilds[ctx.guild.id].report_status())
+    if ctx.guild_id is not None:
+        await ctx.respond(guilds[ctx.guild_id].report_status(), ephemeral=True)
             
 
 

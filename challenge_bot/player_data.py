@@ -1,6 +1,7 @@
 import discord
 
 from challenge_bot.quest import *
+from challenge_bot.dialogs import QuestDecisionDialog
 
 
 class PlayerData:
@@ -8,9 +9,6 @@ class PlayerData:
         self.guild_id = member.guild.id
         self.id = member.id
         self.name = member.nick or member.name
-
-        self.registered = True
-
         self.active_quest : Quest|None = None
 
     def get_quest_info(self):
@@ -21,7 +19,6 @@ class PlayerData:
 
     async def display_quest(self, interaction : discord.Interaction):
         text = f"This is your weekly quest, {self.name}:\n{self.get_quest_info()}"
-
         await interaction.response.send_message(text, ephemeral=True)
 
     def assign_quest(self, quest : Quest):
@@ -29,10 +26,29 @@ class PlayerData:
         self.active_quest.assign()
         
     async def offer_quest(self, interaction : discord.Interaction):
-        text = f"""Hey {self.name}, here is your quest for this week:\n{self.get_quest_info()}"""
-        view = QuestDecisionView(self)
-        await interaction.response.send_message(text, view=view, ephemeral=True)
+        assert(self.active_quest is not None)
+        orig_text = f"""Hey {self.name}, here is your quest for this week:\n{self.get_quest_info()}"""
+        view = QuestDecisionDialog(self.on_accept, self.on_decline)
+
+        i2 = await interaction.respond(orig_text, view=view, ephemeral=True)
+        print(type(i2))
         await view.wait()
+        match(self.active_quest.status):
+            case QuestState.ACCEPTED:
+                orig_text += "\n *Quest Accepted*"
+            case QuestState.REJECTED:
+                orig_text += "\n *Quest Declined*"
+
+        await i2.edit(content=orig_text, view=None)
+        
+
+    async def on_accept(self, interaction : discord.Interaction):
+        assert(self.active_quest is not None)
+        self.active_quest.accept()
+
+    async def on_decline(self, interaction : discord.Interaction):
+        assert(self.active_quest is not None)
+        self.active_quest.reject()
 
     def has_quest(self):
         return False
@@ -44,34 +60,9 @@ class PlayerData:
             return True
         else:
             return False
-    
 
-
-
-
-class QuestDecisionView(discord.ui.View):
-    """The personalized, ephemeral part."""
-    def __init__(self, player: PlayerData):
-        super().__init__(timeout=180)
-        if not player:
-            raise(ValueError("Player information was not provided to the Quest Decision View."))
+    def info(self):
+        if self.active_quest:
+            return f"{self.name}: Quest is `{self.active_quest.status.name.lower()}`."
         else:
-            self.player = player
-
-    @discord.ui.button(label="Accept", style=discord.ButtonStyle.primary)
-    async def accept_challenge(self, button, interaction: discord.Interaction):
-        orig_text = interaction.message.content
-        orig_text += "\n *Quest Accepted*"
-        await interaction.response.edit_message(content=orig_text, view=None)
-        await interaction.channel.send(f"{self.player.name} has accepted their quest.")
-        self.player.active_quest.accept()
-        self.stop()
-
-    @discord.ui.button(label="Decline", style=discord.ButtonStyle.danger)
-    async def reject_challenge(self, button, interaction: discord.Interaction):
-        orig_text = interaction.message.content
-        orig_text += "\n *Quest Declined*"
-        await interaction.response.edit_message(content=orig_text, view=None)
-        await interaction.channel.send(f"{self.player.name} has declined their quest.")
-        self.player.active_quest.reject()
-        self.stop()
+            return f"{self.name}: No Quest"

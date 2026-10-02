@@ -14,7 +14,7 @@ class RevealQuestDialog(discord.ui.View):
 
 
 class QuestDecisionDialog(discord.ui.View):
-    """The personalized, ephemeral part."""
+    """A private dialog, where a viewer receives their quest and can consent to it."""
     def __init__(self, accept_callback, decline_callback):
         super().__init__(timeout=180)
         self.on_accept = accept_callback

@@ -28,5 +28,5 @@ class QuestDecisionDialog(discord.ui.View):
 
     @discord.ui.button(label="Decline", style=discord.ButtonStyle.danger)
     async def decline_challenge(self, button, interaction: discord.Interaction):
-        await self.on_decline()
+        await self.on_decline(interaction)
         self.stop()

@@ -29,35 +29,54 @@ class GuildData:
         self.players : dict[int, PlayerData]= {}
         self.quest_pool : list[Quest] = []
 
-    def on_ready(self):
+    def on_ready(self) -> None:
         self.guild = self.bot.get_guild(self.guild_id)
         assert(self.guild is not None)
         self.guild_name = self.guild.name
 
-        self.challenge_role = self.guild.get_role(self.role_id)
-        assert(self.challenge_role is not None)
+        role = self.guild.get_role(self.role_id)
+        if role is None:
+            raise RuntimeError(f"Role not found: (ID {self.role_id}) ")
+        self.challenge_role = role
 
         channel = self.guild.get_channel(self.channel_id)
-        assert(channel is not None)
-        assert(isinstance(channel, discord.TextChannel))
+        if not type(channel) == discord.TextChannel:
+            raise RuntimeError(f"Channel not found, or is not a TextChannel: (ID {self.channel_id}) ")
         self.status_channel = channel
 
+        # Add all members that have challenge role:
         registered_memebers = self.challenge_role.members
         for m in registered_memebers:
-            self.players[m.id] = PlayerData(m)
-            print(f"{m.name} added to system!")
+            self.add_player(m)
 
         self.looped_status.change_interval(time=self.round_start_time)
         self.looped_status.start()
 
+    def is_ready(self):
+        assert isinstance(self.challenge_role, discord.Role)
+        assert isinstance(self.status_channel, discord.TextChannel)
+        
+
     def player_by_id(self, id : int) -> PlayerData | None:
         return self.players.get(id)
+
+    def add_player(self, m : discord.Member):
+        if not self.challenge_role in m.roles:
+            print(f"Can not add member as player, {m.name} does not have needed role.")
+
+        # Check if player data exists from last save:
+        if False:
+            pass
+        # Create player from scratch.
+        else:
+            self.players[m.id] = PlayerData(m)
+        print(f"{m.name} added to system!")
     
     def add_quest(self, q : Quest):
         self.quest_pool.append(q)
 
     def report_status(self):
-        players_list = "\n- ".join([p.public_status() for p in self.players.values()])
+        players_list = "\n- ".join([p.get_public_status() for p in self.players.values()])
         text = f"""Server Name: {self.guild_name} *({self.guild_id})*
 Players:
 - {players_list}
@@ -83,7 +102,10 @@ There are {len(self.quest_pool)} quests remaining.
         print(f"Quests announced in {self.guild_name}.")
 
     async def handle_reveal(self, interaction : discord.Interaction):
-        if interaction.user is None: return
+        if not interaction.user is discord.Member: 
+            return
+        if not self.challenge_role in interaction.user.roles:
+            return
         try:
             player = self.players[interaction.user.id]
         except IndexError:

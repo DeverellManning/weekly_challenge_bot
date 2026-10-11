@@ -9,24 +9,18 @@ def load(conf_path : str) -> dict[str, Any]:
             config = tomllib.load(cf)
     except FileNotFoundError:
         print("Creating config file...")
-        create_config()
+        create_config_file(conf_path)
         config = load(conf_path)
     finally:
         return config
 
-def add_or_create_guild_conf(config : dict):
-    #guild_conf = config.get(str(guild_id))
 
-    #if guild_conf == None:
-    #    add_guild(guild_id)
-    pass
-            
-
-def create_config():
-    pass
+def create_config_file(conf_path : str):
+    with open(conf_path, "xt") as cf:
+        print("", file=cf)
 
 
-def add_guild(guild_id, guild_name):
+def add_guild(conf_path, guild_id, guild_name):
     a = f"""
 # Guild config for "{guild_name}"
 [{guild_id}]
@@ -37,5 +31,5 @@ round_start_day = 7 # Monday = 0, Tuesday = 1 ... Sunday = 7
 round_end_time = 16:00:00
 round_end_day = 6"""
 
-    with open("./config.toml", "at") as cf:
+    with open(conf_path, "at") as cf:
         print(a, file=cf)

@@ -68,3 +68,4 @@ class Quest:
 
     
         
+null_quest = Quest()

@@ -13,6 +13,10 @@ class QuestType(Enum):
     STEAL = auto()
     COLLECT = auto()
 
+    def __str__(self) -> str:
+        return self.name.capitalize()
+
+
 class QuestState(Enum):
     UNASSIGNED = auto()
     PENDING_OFFER = auto()
@@ -21,10 +25,17 @@ class QuestState(Enum):
     COMPLETED = auto()
     FAILED = auto()
 
+    def __str__(self) -> str:
+        return self.name.capitalize()
+
+
 class QuestDifficulty(Enum):
     EASY = 1
     MODERATE = 2
     HARD = 3
+
+    def __str__(self) -> str:
+        return self.name.capitalize()
 
 
 

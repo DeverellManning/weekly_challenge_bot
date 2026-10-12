@@ -7,17 +7,22 @@ import challenge_bot.config as configurer
 from challenge_bot.guild_data import GuildData
 from challenge_bot.challenge_bot_encoder import ChallengeBotEncoder
 
+# Load configuration, enviroment variables:
 load_dotenv()
 config_path = "./config.toml"
 config = configurer.load(config_path)
 
-data = json.loads("{}")
+# Attempt to load saved data
+data = json.loads("""{
+"guilds": []
+}"""
+)
 
+# Intialize discord bot with needed attempts.
 intents = discord.Intents.default()
 intents.members = True
-bot = discord.Bot(intents=intents)
-
 guilds : dict[int, GuildData] = {}
+bot = discord.Bot(intents=intents)
 
 
 # The big initiation of eveything (tm)
@@ -106,16 +111,14 @@ async def abandon_quest(ctx : discord.ApplicationContext):
 async def join(ctx : discord.ApplicationContext):
     if isinstance(ctx.author, discord.Member):
         guild_data = guilds[ctx.author.guild.id]
-        if guild_data is not None and guild_data.is_ready():
-            await ctx.author.add_roles(guild_data.challenge_role)
-            guild_data.add_player(ctx.author)
+        await ctx.author.add_roles(guild_data.challenge_role)
+        guild_data.add_player(ctx.author)
 
 @bot.slash_command(guild_only=True)
 async def leave(ctx : discord.ApplicationContext):
     if isinstance(ctx.author, discord.Member):
         guild_data = guilds[ctx.author.guild.id]
-        if guild_data is not None:
-            await ctx.author.remove_roles(guild_data.challenge_role)
+        await ctx.author.remove_roles(guild_data.challenge_role)
 
 
 # Admin Commands
@@ -128,10 +131,10 @@ async def quest_status(ctx : discord.ApplicationContext):
 @bot.slash_command(guild_only=True)
 async def dump_json(ctx : discord.ApplicationContext):
     if ctx.guild_id is not None:
-        json_str = json.dumps(guilds[ctx.guild_id], cls=ChallengeBotEncoder)
+        json_str = json.dumps(guilds, cls=ChallengeBotEncoder, sort_keys=True, indent=4)
         print(json_str)
         print(json.loads(json_str))
-        await ctx.respond(json_str, ephemeral=True)
+        await ctx.respond("```\n" + json_str + "\n```", ephemeral=True)
 
 
 # Actually run the bot, with the towoken

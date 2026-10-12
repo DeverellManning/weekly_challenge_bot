@@ -24,6 +24,7 @@ def add_guild(conf_path, guild_id, guild_name):
     a = f"""
 # Guild config for "{guild_name}"
 [{guild_id}]
+disabled = true
 role_id = 0 # Replace with role ID for players
 channel_id = 0 # Replace with the channel ID you want the bot to work in.
 round_start_time = 19:00:00 # When weekly quests are decided and announced. (24 hour time format)

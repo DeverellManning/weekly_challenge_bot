@@ -14,17 +14,21 @@ class PlayerData:
 
     # Player Interactions
     async def offer_quest(self, interaction : discord.Interaction):
-        assert(self.active_quest is not None)
         orig_text = f"""Hey {self.name}, here is your quest for this week:\n{self.get_quest_info()}"""
-        view = QuestDecisionDialog(self.on_accept, self.on_decline)
+        
+        if self.has_quest():
+            view = QuestDecisionDialog(self.on_accept, self.on_decline)
 
-        i2 = await interaction.respond(orig_text, view=view, ephemeral=True)
-        await view.wait()
-        match(self.active_quest.status):
-            case QuestState.ACCEPTED:
-                orig_text += "\n *Quest Accepted*"
-            case QuestState.REJECTED:
-                orig_text += "\n *Quest Declined*"
+            i2 = await interaction.respond(orig_text, view=view, ephemeral=True)
+            await view.wait()
+            match(self.active_quest.status):
+                case QuestState.ACCEPTED:
+                    orig_text += "\n *Quest Accepted*"
+                case QuestState.REJECTED:
+                    orig_text += "\n *Quest Declined*"
+        else:
+            orig_text = f"""You have not been assigned a quest this week :sob:"""
+            i2 = await interaction.respond(orig_text, ephemeral=True)
 
         await i2.edit(content=orig_text, view=None)
     
@@ -35,10 +39,12 @@ class PlayerData:
 
     # Handlers
     async def on_accept(self, interaction : discord.Interaction):
+        print(f"{self.name} has accepted the offered quest.")
         if self.has_quest():
             self.active_quest.accept()
 
     async def on_decline(self, interaction : discord.Interaction):
+        print(f"{self.name} has declined the offered quest.")
         if self.has_quest():
             self.active_quest.reject()
 
@@ -66,7 +72,7 @@ class PlayerData:
     # Info String Genorators
     def get_public_status(self):
         if self.has_quest():
-            return f"{self.name}: Quest is `{self.active_quest.status.name.lower()}`."
+            return f"{self.name}: Quest is `{str(self.active_quest.status)}`."
         else:
             return f"{self.name}: No Quest"
 

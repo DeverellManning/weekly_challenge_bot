@@ -1,5 +1,4 @@
 import random
-import tomllib
 import discord, discord.ext.tasks
 import datetime
 
@@ -77,17 +76,25 @@ class GuildData:
 
     def report_status(self):
         players_list = "\n- ".join([p.get_public_status() for p in self.players.values()])
+        status_counts, total_players = self.calc_stats()
         text = f"""Server Name: {self.guild_name} *({self.guild_id})*
-Players:
+Players: ({total_players} total)
 - {players_list}
 ---
-There are {len(self.quest_pool)} quests remaining.
-{self.round_start_time}
-{self.round_end_time}"""
+There are {len(self.quest_pool)} unassigned quests remaining.
+Quests announed at {self.round_start_time}, Day {self.round_start_day}
+Round ends at {self.round_end_time}, Day {self.round_end_day}
+---
+{"\n,".join([str(v) + " " + str(k) for k, v in status_counts.items()])}
+"""
+
         return text
     
     def assign_quests(self):
         for player in self.players.values():
+            if len(self.quest_pool) <= 0:
+                print("There are no quests left in the pool!")
+                continue
             quest = random.choice(self.quest_pool)
             player.assign_quest(quest)
             self.quest_pool.remove(quest)
@@ -102,9 +109,10 @@ There are {len(self.quest_pool)} quests remaining.
         print(f"Quests announced in {self.guild_name}.")
 
     async def handle_reveal(self, interaction : discord.Interaction):
-        if not interaction.user is discord.Member: 
+        if not isinstance(interaction.user, discord.member.Member): 
             return
         if not self.challenge_role in interaction.user.roles:
+            await interaction.respond("You are not a participant in server quests.  Please use `/join` to opt-in to quests.", ephemeral=True)
             return
         try:
             player = self.players[interaction.user.id]
@@ -113,6 +121,7 @@ There are {len(self.quest_pool)} quests remaining.
             return
         
         if not player.has_accepted_quest():
+            print(f"Offering quest to {player.name}...")
             await player.offer_quest(interaction)
 
             n_accept = 0
@@ -130,6 +139,8 @@ There are {len(self.quest_pool)} quests remaining.
         else:
             await interaction.respond("-# *You have already accepted a quest!*", ephemeral=True, delete_after=6)
 
+
+    # Demo / Testing
     def create_test_quests(self):
         self.quest_pool.extend([
             Quest("Build a Chicken", QuestType.BUILD, 10),
@@ -138,6 +149,18 @@ There are {len(self.quest_pool)} quests remaining.
             Quest("Trap every player.", QuestType.SABOTAGE, 1000, QuestDifficulty.HARD)
         ])
 
+    def calc_stats(self):
+        total = len(self.players)
+        statuses = [p.active_quest.status for p in self.players.values()]
+
+        counted = Counter(statuses)
+        return counted, total
+
+    # Looped Tasks
     @discord.ext.tasks.loop()
     async def looped_status(self):
         await self.status_channel.send(self.report_status())
+
+    @discord.ext.tasks.loop()
+    async def challenge_start(self):
+        pass
